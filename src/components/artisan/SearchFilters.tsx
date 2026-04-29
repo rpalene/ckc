@@ -1,6 +1,5 @@
 import { COMMUNES, TRADE_CATEGORIES } from '../../lib/constants'
 import Select from '../ui/Select'
-import Button from '../ui/Button'
 
 interface Filters {
   q: string
