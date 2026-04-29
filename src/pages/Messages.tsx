@@ -16,9 +16,6 @@ export default function Messages() {
 
   useEffect(() => {
     if (!profile) return
-    const filter = profile.role === 'client'
-      ? `client_id=eq.${profile.id}`
-      : `artisan_id=in.(${profile.id})` // we'll refine after fetch
 
     const fetchConversations = async () => {
       let query = supabase

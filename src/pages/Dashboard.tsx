@@ -5,12 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import type { Artisan, Conversation } from '../types'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
-import StarRating from '../components/ui/StarRating'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 
 export default function Dashboard() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile } = useAuth()
   const navigate  = useNavigate()
   const [artisan, setArtisan]         = useState<Artisan | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])

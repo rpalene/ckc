@@ -1,5 +1,4 @@
-import { ButtonHTMLAttributes } from 'react'
-import type { ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import Spinner from './Spinner'
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
