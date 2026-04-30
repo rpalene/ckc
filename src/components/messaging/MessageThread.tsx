@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { notifyNewMessage } from '../../lib/email'
 import type { Conversation, Message, Profile } from '../../types'
 import Avatar from '../ui/Avatar'
 import { formatTime } from '../../lib/utils'
@@ -52,13 +53,28 @@ export default function MessageThread({ conversation, currentProfile }: Props) {
     e.preventDefault()
     if (!text.trim()) return
     setSending(true)
+    const content = text.trim()
+
     await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender_id: currentProfile.id,
-      content: text.trim(),
+      content,
     })
     setText('')
     setSending(false)
+
+    // Notifie l'artisan par email uniquement quand le client envoie
+    if (
+      currentProfile.role === 'client' &&
+      conversation.artisan?.profile?.email
+    ) {
+      notifyNewMessage({
+        artisanEmail:   conversation.artisan.profile.email,
+        artisanName:    conversation.artisan.profile.full_name || 'Artisan',
+        clientName:     currentProfile.full_name || 'Un client',
+        messageContent: content,
+      })
+    }
   }
 
   return (
