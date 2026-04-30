@@ -13,6 +13,7 @@ export default function Register() {
   const [step, setStep]           = useState<1 | 2>(1)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
+  const [success, setSuccess]     = useState(false)
   const navigate = useNavigate()
 
   // Common fields
@@ -40,7 +41,12 @@ export default function Register() {
     setError('')
 
     // 1. Créer l'utilisateur dans auth.users
-    const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password })
+    //    emailRedirectTo : si confirmation email activée, Supabase redirige vers /dashboard
+    const { data: authData, error: authErr } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    })
     if (authErr || !authData.user) {
       setError(authErr?.message ?? "Erreur lors de l'inscription")
       setLoading(false)
@@ -70,7 +76,14 @@ export default function Register() {
       if (artErr) { setError(artErr.message); setLoading(false); return }
     }
 
-    navigate('/dashboard')
+    if (authData.session) {
+      // Session immédiate (confirmation email désactivée) → dashboard direct
+      navigate('/dashboard')
+    } else {
+      // Confirmation email requise → afficher message, le lien redirigera vers /dashboard
+      setSuccess(true)
+    }
+    setLoading(false)
   }
 
   const communeOptions = COMMUNES.map(c => ({ value: c, label: c }))
@@ -84,8 +97,23 @@ export default function Register() {
           <h1 className="text-2xl font-black text-marine">Créer un compte</h1>
         </div>
 
+        {/* Succès : confirmation email requise */}
+        {success && (
+          <div className="text-center py-4 space-y-4">
+            <div className="text-6xl">📧</div>
+            <h2 className="text-xl font-black text-marine">Vérifiez votre email</h2>
+            <p className="text-gray-500 text-sm leading-relaxed">
+              Un lien de confirmation a été envoyé à <strong>{email}</strong>.
+              Cliquez dessus pour accéder à votre tableau de bord.
+            </p>
+            <Link to="/login" className="text-orange font-semibold hover:underline text-sm block">
+              Déjà confirmé ? Se connecter →
+            </Link>
+          </div>
+        )}
+
         {/* Step 1: Choose role */}
-        {step === 1 && (
+        {!success && step === 1 && (
           <div className="space-y-4">
             <p className="text-center text-gray-500 text-sm mb-6">Je suis…</p>
             <div className="grid grid-cols-2 gap-4">
@@ -117,7 +145,7 @@ export default function Register() {
         )}
 
         {/* Step 2: Fill details */}
-        {step === 2 && (
+        {!success && step === 2 && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <button type="button" onClick={() => setStep(1)} className="text-sm text-gray-400 hover:text-marine mb-2">
               ← Retour
