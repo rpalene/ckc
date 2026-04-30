@@ -19,9 +19,9 @@ create table profiles (
 );
 
 alter table profiles enable row level security;
-create policy "Profil visible par tous"      on profiles for select using (true);
+create policy "Profil visible par tous"        on profiles for select using (true);
 create policy "Utilisateur modifie son profil" on profiles for update using (auth.uid() = id);
-create policy "Utilisateur crée son profil"  on profiles for insert with check (auth.uid() = id);
+-- Pas de policy INSERT : le trigger handle_new_user s'en charge (security definer)
 
 -- ─── ARTISANS ───────────────────────────────────────────────
 create table artisans (
@@ -41,13 +41,9 @@ create table artisans (
 );
 
 alter table artisans enable row level security;
-create policy "Artisans visibles par tous"    on artisans for select using (true);
-create policy "Artisan modifie son profil"    on artisans for update using (
-  auth.uid() = profile_id
-);
-create policy "Artisan crée son profil"       on artisans for insert with check (
-  auth.uid() = profile_id
-);
+create policy "Artisans visibles par tous" on artisans for select using (true);
+create policy "Artisan modifie son profil" on artisans for update using (auth.uid() = profile_id);
+-- Pas de policy INSERT : la fonction create_artisan_profile s'en charge (security definer)
 
 -- ─── CONVERSATIONS ──────────────────────────────────────────
 create table conversations (
@@ -133,6 +129,50 @@ create trigger on_review_upserted
   after insert or update on reviews
   for each row execute function update_artisan_rating();
 
--- ─── Realtime ───────────────────────────────────────────────
+-- ─── TRIGGER : création automatique du profil à l'inscription ──
+-- Résout l'erreur RLS lors du signUp (pas de session active au moment de l'insert)
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, email, full_name, phone, role, commune)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    new.raw_user_meta_data->>'phone',
+    coalesce(new.raw_user_meta_data->>'role', 'client'),
+    new.raw_user_meta_data->>'commune'
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure handle_new_user();
+
+-- ─── RPC : création du profil artisan (security definer) ────────
+-- Appelée côté client juste après signUp, contourne l'absence de session
+create or replace function create_artisan_profile(
+  p_profile_id    uuid,
+  p_business_name text,
+  p_patent_number text,
+  p_description   text,
+  p_commune       text,
+  p_category      text,
+  p_trades        text[]
+) returns void language plpgsql security definer set search_path = ''
+as $$
+begin
+  insert into public.artisans
+    (profile_id, business_name, patent_number, description, commune, category, trades)
+  values
+    (p_profile_id, p_business_name, p_patent_number, p_description, p_commune, p_category, p_trades);
+end;
+$$;
+
+-- ─── Realtime ───────────────────────────────────────────────────
 alter publication supabase_realtime add table messages;
 alter publication supabase_realtime add table conversations;

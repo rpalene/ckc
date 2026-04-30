@@ -39,23 +39,33 @@ export default function Register() {
     setLoading(true)
     setError('')
 
-    // 1. Create auth user
+    // 1. Créer l'utilisateur dans auth.users
     const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password })
-    if (authErr || !authData.user) { setError(authErr?.message ?? 'Erreur inscription'); setLoading(false); return }
+    if (authErr || !authData.user) {
+      setError(authErr?.message ?? "Erreur lors de l'inscription")
+      setLoading(false)
+      return
+    }
 
     const uid = authData.user.id
 
-    // 2. Create profile
-    const { error: profErr } = await supabase.from('profiles').insert({
-      id: uid, email, full_name: fullName, phone, role, commune,
+    // 2. Créer le profil via RPC security definer (bypass RLS, pas de session requise)
+    const { error: profErr } = await supabase.rpc('create_profile', {
+      p_id: uid, p_email: email, p_full_name: fullName,
+      p_phone: phone, p_role: role, p_commune: commune,
     })
     if (profErr) { setError(profErr.message); setLoading(false); return }
 
-    // 3. Create artisan record if needed
+    // 3. Pour les artisans : créer la fiche via RPC
     if (role === 'artisan') {
-      const { error: artErr } = await supabase.from('artisans').insert({
-        profile_id: uid, business_name: bizName, patent_number: patent,
-        description: desc, commune, trades, category,
+      const { error: artErr } = await supabase.rpc('create_artisan_profile', {
+        p_profile_id:    uid,
+        p_business_name: bizName,
+        p_patent_number: patent,
+        p_description:   desc,
+        p_commune:       commune,
+        p_category:      category,
+        p_trades:        trades,
       })
       if (artErr) { setError(artErr.message); setLoading(false); return }
     }
