@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { COMMUNES, TRADE_CATEGORIES } from '../lib/constants'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
@@ -11,10 +12,17 @@ import type { UserRole } from '../types'
 export default function Register() {
   const [role, setRole]           = useState<UserRole>('client')
   const [step, setStep]           = useState<1 | 2>(1)
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const [success, setSuccess]     = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
+  const [success, setSuccess]       = useState(false)
+  const [pendingRedirect, setPendingRedirect] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuth()
+
+  // Navigue vers /dashboard dès que l'AuthContext a reçu la session
+  useEffect(() => {
+    if (pendingRedirect && user) navigate('/dashboard')
+  }, [user, pendingRedirect, navigate])
 
   // Common fields
   const [email, setEmail]         = useState('')
@@ -77,10 +85,10 @@ export default function Register() {
     }
 
     if (authData.session) {
-      // Session immédiate (confirmation email désactivée) → dashboard direct
-      navigate('/dashboard')
+      // Session immédiate → attend la mise à jour de l'AuthContext avant de naviguer
+      setPendingRedirect(true)
     } else {
-      // Confirmation email requise → afficher message, le lien redirigera vers /dashboard
+      // Confirmation email requise → le lien dans l'email redirigera vers /dashboard
       setSuccess(true)
     }
     setLoading(false)
